@@ -1,0 +1,2351 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lịch làm</title>
+
+  <!-- Font hỗ trợ đầy đủ dấu tiếng Việt, hình học/đậm nét hợp phong
+       cách neo-brutalism (Be Vietnam Pro - thiết kế riêng cho tiếng Việt) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* ===== NEO-BRUTALISM ===== phẳng, viền đen dày, bóng cứng không
+       * mờ (không backdrop-filter, không gradient mờ ảo) -> nhẹ và
+       * nhanh hơn hẳn glass cho bảng dữ liệu lớn. */
+      --bg: #eef2fb;
+      --text: #101114;
+      --muted: #4d5158;
+      --glass: #ffffff;
+      --line: #101114;
+      --header: #bcd2ff;
+      --accent: #1e40ff;
+      --accent2: #ffb020;
+      --green: #17c964;
+      --graydot: #8b8f97;
+      --shadow: 5px 5px 0 #101114;
+      --shadow-sm: 3px 3px 0 #101114;
+      --radius: 10px;
+
+      /* Chiều rộng các cột freeze (dot -> WH), dùng chung cho left offset sticky */
+      --w-dot: 28px;
+      --w-a: 110px;
+      --w-c: 150px;
+      --w-d: 220px;
+      --w-e: 125px;
+      --w-f: 70px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .orb { display:none; } /* không dùng khối màu mờ trang trí trong neo-brutalism */
+
+    .app {
+      position: relative;
+      z-index: 1;
+      padding: 18px;
+      height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; /* trang không tự cuộn -> chỉ bảng bên trong (.table-wrap) cuộn */
+    }
+
+    .glass {
+      background: var(--glass);
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1000; /* đảm bảo header (và popup lịch bên trong) luôn nổi trên bảng dữ liệu */
+      border-bottom: 5px solid var(--accent);
+      flex: 0 0 auto;
+    }
+
+    .header-content {
+      display:flex;
+      gap:16px;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .brand { display:flex; gap:12px; align-items:center; }
+    .brand-icon {
+      width:48px; height:48px; border-radius:15px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:24px;
+      background: #fff;
+      border: 3px solid var(--line);
+      box-shadow: var(--shadow-sm);
+    }
+    .brand-title { font-size:21px; font-weight:800; letter-spacing:-.4px; }
+    .brand-sub { color:var(--muted); font-size:12px; margin-top:2px; }
+
+    .controls {
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    }
+
+    .control {
+      display:flex; align-items:center; gap:7px;
+      padding:5px 9px;
+      border-radius:8px;
+      background: #fff;
+      border:2px solid var(--line);
+      min-width:150px; /* Tháng và Ngày cùng chiều rộng, không lệch nhau */
+      justify-content:space-between;
+    }
+    .control span {
+      font-size:11px; color:var(--muted); white-space:nowrap; font-weight:700;
+    }
+    .control select { flex:1; }
+    .date-picker-btn { flex:1; justify-content:space-between; }
+
+    select, input {
+      border:0; outline:0; background:transparent;
+      color:#101114; font-size:13px;
+    }
+    select { font-weight:650; padding:5px 2px; cursor:pointer; }
+
+    .button {
+      border:2px solid var(--line); outline:0; cursor:pointer;
+      height:38px; min-width:38px; padding:0 12px;
+      border-radius:8px;
+      background: #fff;
+      box-shadow: var(--shadow-sm);
+      transition: transform .1s ease, box-shadow .1s ease;
+      font-weight:800;
+    }
+    .button:hover { background:#e6edff; }
+    .button:active { transform:translate(3px,3px); box-shadow:0 0 0 #101114; }
+
+    .tabs {
+      border-radius:10px;
+      padding:6px;
+      display:flex;
+      gap:6px;
+      width:fit-content;
+      margin-bottom:12px;
+      flex: 0 0 auto;
+    }
+    .tab {
+      border:2px solid transparent; outline:0; cursor:pointer;
+      padding:10px 15px;
+      border-radius:8px;
+      background:transparent;
+      color:#4d5158;
+      font-size:13px;
+      font-weight:750;
+    }
+    .tab.active {
+      background:var(--accent2);
+      color:#101114;
+      border:2px solid var(--line);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel {
+      border-radius:var(--radius);
+      overflow:hidden;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0; /* cho phép con bên trong (table-wrap) co lại và tự cuộn thay vì đẩy tràn trang */
+    }
+
+    .statusbar {
+      padding:10px 14px;
+      border-bottom:3px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      color:#4d5158; font-size:12px;
+      min-height:44px;
+      flex: 0 0 auto;
+    }
+
+    .status-left { display:flex; align-items:center; gap:8px; }
+    .status-dot {
+      width:9px; height:9px; border-radius:50%;
+      background:#17c964;
+      box-shadow:0 0 0 2px #101114;
+    }
+
+    .searchbar {
+      padding:10px 14px;
+      border-bottom:3px solid var(--line);
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex: 0 0 auto;
+    }
+
+    .searchbox {
+      display:flex; align-items:center; gap:8px;
+      width:100%; max-width:460px;
+      padding:8px 11px;
+      border-radius:8px;
+      background:#fff;
+      border:2px solid var(--line);
+    }
+    .searchbox input { width:100%; }
+    .searchbox input::placeholder { color:#8b8f97; }
+
+    .filter-select {
+      padding:8px 11px;
+      border-radius:8px;
+      background:#fff;
+      border:2px solid var(--line);
+      font-weight:650;
+      cursor:pointer;
+      min-width:130px;
+    }
+
+    .table-wrap {
+      width:100%;
+      flex: 1 1 auto;
+      min-height: 0; /* cho phép bảng co lại đúng theo chỗ còn trống, tự cuộn bên trong thay vì đẩy tràn trang */
+      overflow:auto;
+      position:relative;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior:contain;
+      /* KHÔNG dùng contain:layout/paint ở đây — trên nhiều trình duyệt
+       * mobile (đặc biệt WebView Android), contain kết hợp với nhiều
+       * cột position:sticky gây lỗi hiển thị "bóng ma"/chồng chữ khi
+       * cuộn dọc. */
+    }
+
+    table {
+      width:max-content;
+      min-width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      font-size:12px;
+    }
+
+    th, td {
+      white-space:nowrap;
+      padding:8px 10px;
+      border-bottom:2px solid var(--line);
+      border-right:1px solid rgba(16,17,20,.15);
+      vertical-align:middle;
+    }
+
+    th {
+      position:sticky;
+      top:0;
+      z-index:30;
+      background:var(--header);
+      color:#101114;
+      font-weight:800;
+      text-align:left;
+      border-bottom:3px solid var(--line);
+    }
+
+    td { background:#ffffff; color:#101114; }
+    /* Không dùng hiệu ứng hover đổi màu cả dòng: khi cuộn chuột, con
+     * trỏ đứng yên nhưng dòng bên dưới liên tục đổi -> trình duyệt
+     * phải tính lại hover + repaint mỗi dòng đi qua, đây là nguyên
+     * nhân chính gây giật khi cuộn dọc trên bảng nhiều dòng. */
+    tr:hover td { background:inherit; }
+
+    .col-dot {
+      width:var(--w-dot) !important;
+      min-width:var(--w-dot) !important;
+      max-width:var(--w-dot) !important;
+      padding:0 !important;
+      text-align:center !important;
+      position:sticky;
+      left:0;
+    }
+
+    th.col-dot { z-index:65; background:var(--header); }
+    td.col-dot { z-index:29; background:#eef2fb; }
+
+    .col-dot, .col-a, .col-c, .col-d, .col-e, .col-f {
+      transform: translateZ(0); /* ép layer GPU riêng cho từng cột dính, tránh lỗi vẽ sót/chồng chữ khi cuộn trên mobile */
+    }
+
+    .col-a, .col-c, .col-d, .col-e, .col-f {
+      position:sticky;
+      background:#eef2fb;
+    }
+
+    .col-a {
+      left:var(--w-dot);
+      width:var(--w-a) !important;
+      min-width:var(--w-a) !important;
+      max-width:var(--w-a) !important;
+    }
+    .col-c {
+      left:calc(var(--w-dot) + var(--w-a));
+      width:var(--w-c) !important;
+      min-width:var(--w-c) !important;
+      max-width:var(--w-c) !important;
+    }
+    .col-d {
+      left:calc(var(--w-dot) + var(--w-a) + var(--w-c));
+      width:var(--w-d) !important;
+      min-width:var(--w-d) !important;
+      max-width:var(--w-d) !important;
+    }
+    .col-e {
+      left:calc(var(--w-dot) + var(--w-a) + var(--w-c) + var(--w-d));
+      width:var(--w-e) !important;
+      min-width:var(--w-e) !important;
+      max-width:var(--w-e) !important;
+      font-variant-numeric:tabular-nums;
+    }
+    .col-f {
+      left:calc(var(--w-dot) + var(--w-a) + var(--w-c) + var(--w-d) + var(--w-e));
+      width:var(--w-f) !important;
+      min-width:var(--w-f) !important;
+      max-width:var(--w-f) !important;
+      border-right:3px solid var(--line) !important; /* đánh dấu biên freeze */
+    }
+
+    th.col-a { z-index:64; }
+    th.col-c { z-index:63; }
+    th.col-d { z-index:62; }
+    th.col-e { z-index:61; }
+    th.col-f { z-index:60; }
+
+    td.col-a { z-index:28; }
+    td.col-c { z-index:27; }
+    td.col-d { z-index:26; }
+    td.col-e { z-index:25; }
+    td.col-f { z-index:24; }
+
+    .hour-col {
+      width:70px;
+      min-width:70px;
+      max-width:70px;
+      text-align:center !important;
+      padding-left:5px !important;
+      padding-right:5px !important;
+    }
+
+    .cell-value {
+      display:inline-block;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:100%;
+    }
+
+    .note-mark {
+      display:inline-flex;
+      width:13px;
+      height:13px;
+      margin-left:4px;
+      align-items:center;
+      justify-content:center;
+      border-radius:50%;
+      background:var(--accent2);
+      border:1.5px solid var(--line);
+      color:#101114;
+      font-size:8px;
+      font-weight:900;
+      vertical-align:middle;
+      pointer-events:none; /* hover tính trên cả ô td, không cần trúng đúng icon này */
+    }
+
+    td.has-note { cursor:help; }
+
+    .note-tooltip {
+      position:fixed; z-index:300000; max-width:260px;
+      background:#fff; border:3px solid var(--line); border-radius:8px;
+      padding:8px 10px; font-size:12px; font-weight:650; color:#101114;
+      box-shadow: var(--shadow-sm);
+      display:none; pointer-events:none;
+      white-space:normal; word-break:break-word; line-height:1.4;
+    }
+    .note-tooltip.show { display:block; }
+
+    .row-dot {
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      display:inline-block;
+      background:var(--graydot);
+      box-shadow:0 0 0 2px rgba(170,177,187,.12);
+    }
+    .row-dot.working {
+      background:var(--green);
+      box-shadow:0 0 0 3px rgba(49,197,107,.12);
+    }
+
+    .empty {
+      min-height:320px; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; text-align:center;
+      padding:40px; color:#858b95;
+    }
+    .empty-icon { font-size:38px; margin-bottom:8px; }
+    .empty-title { font-weight:800; color:#5f646d; margin-bottom:4px; }
+    .empty-text { font-size:12px; color:#9297a0; }
+
+    .loading {
+      position:fixed; inset:0; z-index:99999;
+      display:none; align-items:center; justify-content:center;
+      background:rgba(16,17,20,.35);
+    }
+    .loading.show { display:flex; }
+    .loading-card {
+      padding:22px 28px; border-radius:var(--radius);
+      background:#fff;
+      border:3px solid var(--line);
+      box-shadow: var(--shadow);
+      text-align:center;
+    }
+    .spinner {
+      width:32px;height:32px;margin:0 auto 10px;border-radius:50%;
+      border:3px solid rgba(80,100,130,.14);
+      border-top-color:#4778ff;
+      animation:spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* TAB 3 */
+    .towd-wrap {
+      padding:14px;
+      flex: 1 1 auto;
+      overflow-y: auto; /* ToWD/Chuyên cần cũng tự cuộn riêng, không đẩy tràn trang */
+      min-height: 0;
+    }
+    .towd-search {
+      display:flex; gap:8px; align-items:center; margin-bottom:12px;
+    }
+    .towd-search .searchbox { flex:1; max-width:none; }
+    .section-card {
+      border-radius:var(--radius);
+      overflow:hidden;
+      margin-bottom:12px;
+      border:3px solid var(--line);
+      background:#fff;
+      box-shadow: var(--shadow-sm);
+    }
+    .section-title {
+      padding:9px 11px; font-size:12px; font-weight:850;
+      border-bottom:3px solid var(--line);
+      background:var(--header);
+    }
+    .section-table { max-width:100%; overflow:auto; }
+    .section-table table { font-size:11px; }
+    .section-table th, .section-table td { padding:7px 8px; }
+
+    /* Tab 3 - ToWD layout: Thông tin Chung + Công trong tháng xếp dọc
+     * bên trái, Công thường/OT/NL bên phải (tự xuống hàng) */
+    .towd-layout { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; padding:14px; }
+    .towd-left { display:flex; flex-direction:column; gap:14px; flex:0 0 280px; max-width:320px; }
+    .towd-general { width:100%; }
+    .towd-vertical-table { width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; }
+    .towd-vertical-table th {
+      text-align:left; color:var(--muted); font-weight:650;
+      padding:6px 8px; white-space:nowrap; width:38%;
+    }
+    .towd-vertical-table td {
+      padding:6px 8px; font-weight:600; color:#26292e;
+      border-top:1px solid rgba(120,130,145,.10);
+      white-space:normal; word-break:break-word; overflow-wrap:anywhere;
+    }
+    .towd-vertical-table tr:first-child th,
+    .towd-vertical-table tr:first-child td { border-top:none; }
+
+    .towd-right { flex:1 1 380px; display:flex; flex-wrap:wrap; gap:12px; align-content:flex-start; }
+    .towd-box {
+      flex:0 1 auto;
+      border:3px solid var(--line);
+      border-radius:var(--radius);
+      background:#fff;
+      box-shadow:var(--shadow-sm);
+      overflow:hidden;
+    }
+    .towd-box .section-table th,
+    .towd-box .section-table td {
+      width:48px; min-width:48px; max-width:48px;
+      text-align:center; font-size:11.5px; padding:6px 3px;
+      white-space:normal; word-break:break-word;
+    }
+
+    /* LOGIN */
+    .login-overlay {
+      position:fixed; inset:0; z-index:200000;
+      display:flex; align-items:center; justify-content:center;
+      padding:16px;
+      background: var(--bg);
+      overflow:hidden;
+    }
+    .login-overlay.hide { display:none; }
+
+    .login-stack {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:16px;
+      width:100%;
+      max-width:360px;
+    }
+
+    .dvd-logo {
+      position:absolute; top:0; left:0;
+      font-weight:900; font-size:68px; letter-spacing:1px;
+      color:#1e40ff;
+      pointer-events:none;
+      will-change:transform;
+      white-space:nowrap;
+      z-index:0;
+    }
+    .login-card {
+      width:100%; max-width:360px;
+      border-radius:var(--radius); padding:26px 24px;
+      background:#fff;
+      border:3px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+    .login-title { font-size:19px; font-weight:800; margin-bottom:2px; }
+    .login-sub { font-size:12px; color:var(--muted); margin-bottom:18px; }
+    .login-field { margin-bottom:12px; }
+    .login-field label { display:block; font-size:11px; color:var(--muted); margin-bottom:5px; font-weight:650; }
+    .login-field input {
+      width:100%; padding:10px 12px; border-radius:8px;
+      background:#fff; border:2px solid var(--line);
+      font-size:13px; color:#101114;
+    }
+    .login-error {
+      display:none; font-size:12px; color:#101114;
+      background:#ffd7d2; border:2px solid var(--line); border-radius:8px;
+      padding:8px 10px; margin-bottom:12px; font-weight:650;
+    }
+    .login-error.show { display:block; }
+    .login-msg {
+      display:none; font-size:12px; color:#101114;
+      background:#c8f7d8; border:2px solid var(--line); border-radius:8px;
+      padding:8px 10px; margin-bottom:12px; font-weight:650;
+    }
+    .login-msg.show { display:block; }
+    .login-submit {
+      width:100%; height:42px; border-radius:8px; border:2px solid var(--line); outline:0;
+      cursor:pointer; font-weight:800; font-size:13px;
+      background:var(--accent); color:#fff;
+      box-shadow: var(--shadow-sm);
+      transition: transform .1s ease, box-shadow .1s ease;
+    }
+    .login-submit:active { transform:translate(3px,3px); box-shadow:0 0 0 #101114; }
+    .login-forgot {
+      display:block; text-align:center; margin-top:14px;
+      font-size:12px; color:#101114; cursor:pointer; text-decoration:underline; font-weight:650;
+    }
+
+    .user-chip {
+      display:flex; align-items:center; gap:7px;
+      padding:5px 10px 5px 5px; border-radius:8px;
+      background:#fff; border:2px solid var(--line);
+      font-size:11px; font-weight:700; color:#101114;
+      cursor:pointer;
+    }
+    .user-chip .avatar {
+      width:24px; height:24px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      background:var(--accent); color:#fff; font-size:11px; font-weight:800;
+      border:2px solid var(--line);
+    }
+
+    .control-date { position:relative; }
+    .date-picker-btn {
+      display:flex; align-items:center; gap:6px;
+      padding:8px 12px; border-radius:8px;
+      background:#fff; border:2px solid var(--line);
+      font-size:13px; font-weight:700; color:#101114; cursor:pointer;
+      white-space:nowrap;
+    }
+    .date-picker-popup {
+      display:none; position:absolute; top:calc(100% + 8px); left:0;
+      z-index:500; width:260px; padding:12px;
+      border-radius:var(--radius); background:#fff;
+      border:3px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+    .date-picker-popup.open { display:block; }
+    .dp-header { font-size:12px; font-weight:750; text-align:center; margin-bottom:8px; color:#101114; }
+    .dp-weekdays, .dp-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+    .dp-weekdays span { font-size:10px; text-align:center; color:var(--muted); font-weight:700; padding-bottom:4px; }
+    .dp-cell {
+      aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+      font-size:12px; border-radius:6px; color:#8b8f97;
+    }
+    .dp-cell.dp-available { color:#101114; background:#eef2fb; cursor:pointer; font-weight:700; border:1.5px solid transparent; }
+    .dp-cell.dp-available:hover { border-color:var(--line); }
+    .dp-cell.dp-today { box-shadow:inset 0 0 0 2px var(--accent); }
+    .dp-cell.dp-selected { background:var(--accent) !important; color:#fff !important; border:1.5px solid var(--line) !important; }
+    .dp-cell.dp-disabled { opacity:.35; }
+    .dp-empty { visibility:hidden; }
+
+    @media (max-width: 800px) {
+      :root {
+        --w-dot: 22px;
+        --w-a: 64px;
+        --w-c: 86px;
+        --w-d: 108px;
+        --w-e: 80px;
+        --w-f: 42px;
+      }
+
+      .app { padding:10px; }
+      .header { padding:13px; border-radius:18px; }
+      .header-content { align-items:flex-start; flex-direction:column; }
+      .controls { width:100%; flex-wrap:wrap; }
+      .control { flex:1; min-width:120px; }
+      .control select { width:100%; }
+      .tabs { width:100%; overflow-x:auto; }
+      .tab { flex:1; white-space:nowrap; }
+      .table-wrap { -webkit-overflow-scrolling:touch; }
+      .user-chip { width:100%; justify-content:center; order:99; }
+      .login-card { max-width:100%; }
+      .login-field input { font-size:16px; } /* tránh Safari tự zoom khi focus input */
+
+      /* Hiệu năng mobile: backdrop-filter (blur) rất tốn GPU trên điện
+       * thoại. th đã bỏ blur cho mọi kích thước màn hình ở trên; các
+       * phần tử còn lại (không nằm trong đường cuộn bảng) chỉ cần tắt
+       * trên mobile để tiết kiệm pin/GPU. */
+      table { font-size:11px; }
+      tr:hover td { background:inherit; } /* bỏ hiệu ứng hover tốn reflow trên touch */
+
+      /* Giảm số cột dính trên mobile: 6 cột sticky cùng lúc trên màn
+       * hình nhỏ dễ gây lỗi hiển thị hơn desktop. Chỉ giữ cột chấm +
+       * Team dính, các cột còn lại cuộn tự nhiên theo bảng. */
+      .col-c, .col-d, .col-e, .col-f {
+        position:static !important;
+        width:auto !important;
+        min-width:100px !important;
+        max-width:none !important;
+      }
+      .col-f { border-right:1px solid rgba(16,17,20,.15) !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loginOverlay" class="login-overlay">
+    <div id="dvdLogo" class="dvd-logo">SSU</div>
+
+    <div class="login-stack">
+      <form id="loginCardMain" class="login-card glass" onsubmit="return handleLoginFormSubmit(event)">
+        <div class="login-title">🔒 Đăng nhập</div>
+        <div class="login-sub">Nhập email và mật khẩu để xem lịch làm</div>
+
+        <div id="loginError" class="login-error"></div>
+        <div id="loginMsg" class="login-msg"></div>
+
+        <div class="login-field">
+          <label>Email</label>
+          <input id="loginEmail" name="username" type="email" autocomplete="username" placeholder="ten.email@shopeemobile-external.com">
+        </div>
+        <div class="login-field">
+          <label>Mật khẩu</label>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Mật khẩu">
+        </div>
+
+        <button class="login-submit" id="loginSubmitBtn" type="submit">Đăng nhập</button>
+        <a class="login-forgot" onclick="showForgotPanel()">Quên mật khẩu?</a>
+      </form>
+
+      <div class="login-card glass" id="forgotCard" style="display:none;">
+        <div class="login-title">🔑 Quên mật khẩu</div>
+        <div class="login-sub" id="forgotSub">Nhập email để nhận mã xác minh</div>
+
+        <div id="forgotError" class="login-error"></div>
+        <div id="forgotMsg" class="login-msg"></div>
+
+        <div class="login-field" id="forgotStepEmail">
+          <label>Email</label>
+          <input id="forgotEmail" type="email" autocomplete="username" placeholder="ten.email@shopeemobile-external.com">
+        </div>
+
+        <div class="login-field" id="forgotStepCode" style="display:none;">
+          <label>Mã xác minh (6 số, gửi qua email)</label>
+          <input id="forgotCode" type="text" inputmode="numeric" maxlength="6" placeholder="Nhập mã 6 số">
+        </div>
+
+        <div class="login-field" id="forgotStepPassword" style="display:none;">
+          <label>Mật khẩu mới</label>
+          <input id="forgotNewPassword" type="password" autocomplete="new-password" placeholder="Tối thiểu 6 ký tự">
+        </div>
+        <div class="login-field" id="forgotStepPassword2" style="display:none;">
+          <label>Nhập lại mật khẩu mới</label>
+          <input id="forgotNewPassword2" type="password" autocomplete="new-password" placeholder="Nhập lại mật khẩu mới">
+        </div>
+
+        <button class="login-submit" id="forgotSubmitBtn" onclick="forgotStepSubmit()">Gửi mã xác minh</button>
+        <a class="login-forgot" onclick="backToLogin()">← Quay lại đăng nhập</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+
+  <div class="app">
+    <div class="header glass" data-liquid-ignore="true">
+      <div class="header-content">
+        <div class="brand">
+          <div class="brand-icon">📅</div>
+          <div>
+            <div class="brand-title">Lịch làm</div>
+            <div class="brand-sub">Schedule Management · Fast Cache</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="control">
+            <span>Tháng</span>
+            <select id="monthSelect"></select>
+          </div>
+
+          <div class="control control-date">
+            <span>Ngày</span>
+            <button type="button" class="date-picker-btn" id="datePickerBtn" onclick="toggleDatePicker(event)">
+              <span id="datePickerLabel">--/--</span> ▾
+            </button>
+            <div class="date-picker-popup" id="datePickerPopup">
+              <div class="dp-header" id="dpMonthLabel"></div>
+              <div class="dp-weekdays">
+                <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+              </div>
+              <div class="dp-grid" id="dpGrid"></div>
+            </div>
+          </div>
+
+          <button class="button" onclick="refreshNow()" title="Làm mới">↻</button>
+          <button class="button" onclick="runSpeedTest()" title="Test tốc độ">⚡</button>
+
+          <div class="user-chip" id="userChip" onclick="logoutNow()" title="Bấm để đăng xuất" style="display:none;">
+            <span class="avatar" id="userAvatar">?</span>
+            <span id="userLabel"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs glass" data-liquid-ignore="true">
+      <button class="tab active" id="tabCS" onclick="switchTab('CS')">👤 Lịch làm CS</button>
+      <button class="tab" id="tabBO" onclick="switchTab('BO')">🛠️ Lịch làm BO</button>
+      <button class="tab" id="tabTODW" onclick="switchTab('TODW')">📊 Công ToWD</button>
+      <button class="tab" id="tabATT" onclick="switchTab('ATT')">🕒 Chuyên cần</button>
+    </div>
+
+    <div class="panel glass" data-liquid-ignore="true">
+      <div class="statusbar">
+        <div class="status-left">
+          <span id="statusDot" class="status-dot"></span>
+          <span id="status">Đang khởi động...</span>
+        </div>
+        <div id="statusRight"></div>
+      </div>
+
+      <div id="scheduleSearchBar" class="searchbar">
+        <div class="searchbox">
+          <span>🔎</span>
+          <input
+            id="searchInput"
+            type="text"
+            autocomplete="off"
+            placeholder="Tìm theo tên hoặc email...">
+        </div>
+        <select id="teamFilter" class="filter-select" onchange="onTeamFilterChange_()">
+          <option value="">Tất cả Team</option>
+        </select>
+        <select id="shiftFilter" class="filter-select" onchange="filterSchedule()">
+          <option value="">Tất cả Ca</option>
+        </select>
+      </div>
+
+      <div id="towdArea" class="towd-wrap" style="display:none;">
+        <div class="towd-search">
+          <div class="searchbox">
+            <span>✉️</span>
+            <input id="towdSearch" type="email" autocomplete="off" placeholder="Nhập email để tra Công ToWD...">
+          </div>
+          <button class="button" onclick="searchToWD()">Tìm</button>
+        </div>
+        <div id="towdResult"></div>
+      </div>
+
+      <div id="attArea" class="towd-wrap" style="display:none;">
+        <div class="towd-search">
+          <div class="searchbox">
+            <span>✉️</span>
+            <input id="attSearch" type="email" autocomplete="off" placeholder="Nhập email để tra Chuyên cần...">
+          </div>
+          <button class="button" onclick="searchAttendance()">Tìm</button>
+        </div>
+        <div id="attResult"></div>
+      </div>
+
+      <div id="tableArea" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div id="loadingText">Đang tải dữ liệu...</div>
+    </div>
+  </div>
+
+<script>
+  let currentTab = 'CS';
+  let months = [];
+  let dates = [];
+  let bundle = null;
+  let currentMonth = '';
+  let currentDate = '';
+  let todayParts = null;
+  let pollHandle = null;
+  let liquidInstance = null;
+
+  /* ---------- AUTH STATE ---------- */
+  let sessionToken = null;
+  let sessionInfo = null;      // { email, role, team }
+  let sessionExpiresAt = 0;
+  let sessionTimeoutHandle = null;
+  const SESSION_STORAGE_KEY = 'lichlam_session_v1';
+
+  window.addEventListener('load', initializeApp);
+
+  function initializeApp() {
+    initLiquidGL();
+    bindEvents();
+    bindLoginEvents();
+
+    if (restoreSessionFromStorage()) {
+      afterLoginReady();
+    } else {
+      showLoginScreen();
+    }
+  }
+
+  /* ---------- LOGIN / SESSION ---------- */
+
+  function bindLoginEvents() {
+    ['loginEmail', 'loginPassword'].forEach(function(id) {
+      document.getElementById(id).addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') doLogin();
+      });
+    });
+  }
+
+  function showLoginScreen() {
+    document.getElementById('loginOverlay').classList.remove('hide');
+    document.getElementById('userChip').style.display = 'none';
+    if (pollHandle) clearInterval(pollHandle);
+    if (sessionTimeoutHandle) clearTimeout(sessionTimeoutHandle);
+    startDvdAnimation();
+  }
+
+  function hideLoginScreen() {
+    document.getElementById('loginOverlay').classList.add('hide');
+    stopDvdAnimation();
+  }
+
+  /**
+   * DVD-bounce "SSU" — chạy lặp vô hạn trong lúc màn hình đăng nhập
+   * còn hiển thị, tự dừng ngay khi đăng nhập thành công (hideLoginScreen).
+   * Chỉ đổi transform của 1 phần tử mỗi khung hình -> rất nhẹ, không
+   * ảnh hưởng thao tác nhập liệu/đăng nhập.
+   */
+  let dvdAnimHandle = null;
+  let dvdColorIndex = 0;
+  const dvdColors = ['#1e40ff', '#ffb020', '#ff5470', '#17c964', '#101114'];
+
+  function startDvdAnimation() {
+    if (dvdAnimHandle) return; // đã chạy rồi, không chạy trùng
+    const el = document.getElementById('dvdLogo');
+    const overlay = document.getElementById('loginOverlay');
+    if (!el || !overlay) return;
+
+    let x = 30, y = 30;
+    let vx = 2.1, vy = 1.6;
+
+    function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+      return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    function getVisibleCardRect_() {
+      const main = document.getElementById('loginCardMain');
+      const forgot = document.getElementById('forgotCard');
+      const visible = (main && main.style.display !== 'none') ? main
+        : (forgot && forgot.style.display !== 'none' ? forgot : null);
+      if (!visible) return null;
+      const r = visible.getBoundingClientRect();
+      return { left: r.left, top: r.top, width: r.width, height: r.height };
+    }
+
+    function tick() {
+      if (overlay.classList.contains('hide')) {
+        dvdAnimHandle = null;
+        return;
+      }
+
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const maxX = Math.max(0, overlay.clientWidth - w);
+      const maxY = Math.max(0, overlay.clientHeight - h);
+
+      let nx = x + vx;
+      let ny = y + vy;
+      let bounced = false;
+
+      // Nảy khi chạm biên màn hình.
+      if (nx <= 0 || nx >= maxX) { vx = -vx; nx = Math.max(0, Math.min(nx, maxX)); bounced = true; }
+      if (ny <= 0 || ny >= maxY) { vy = -vy; ny = Math.max(0, Math.min(ny, maxY)); bounced = true; }
+
+      // Nảy khi chạm box đăng nhập/quên mật khẩu (né, không đè lên).
+      const card = getVisibleCardRect_();
+      if (card && rectsOverlap(nx, ny, w, h, card.left, card.top, card.width, card.height)) {
+        if (!rectsOverlap(x, ny, w, h, card.left, card.top, card.width, card.height)) {
+          vx = -vx; nx = x;
+        } else if (!rectsOverlap(nx, y, w, h, card.left, card.top, card.width, card.height)) {
+          vy = -vy; ny = y;
+        } else {
+          vx = -vx; vy = -vy; nx = x; ny = y;
+        }
+        bounced = true;
+      }
+
+      if (bounced) {
+        dvdColorIndex = (dvdColorIndex + 1) % dvdColors.length;
+        el.style.color = dvdColors[dvdColorIndex];
+      }
+
+      x = nx; y = ny;
+      el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+      dvdAnimHandle = requestAnimationFrame(tick);
+    }
+
+    dvdAnimHandle = requestAnimationFrame(tick);
+  }
+
+  function stopDvdAnimation() {
+    if (dvdAnimHandle) {
+      cancelAnimationFrame(dvdAnimHandle);
+      dvdAnimHandle = null;
+    }
+  }
+
+  /**
+   * handleLoginFormSubmit — cho phép thẻ <form> thật sự "submit" (dù
+   * được chặn lại bằng preventDefault), để trình duyệt nhận diện đây
+   * là 1 form đăng nhập username+password thật và bật popup lưu mật
+   * khẩu. Nếu chỉ dùng onclick trên nút thường (không phải submit
+   * trong form), hầu hết trình duyệt sẽ KHÔNG đề nghị lưu mật khẩu.
+   */
+  function handleLoginFormSubmit(e) {
+    e.preventDefault();
+    doLogin();
+    return false;
+  }
+
+  function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errorBox = document.getElementById('loginError');
+    const msgBox = document.getElementById('loginMsg');
+
+    errorBox.classList.remove('show');
+    msgBox.classList.remove('show');
+
+    if (!email || !password) {
+      errorBox.textContent = 'Vui lòng nhập email và mật khẩu.';
+      errorBox.classList.add('show');
+      return;
+    }
+
+    document.getElementById('loginSubmitBtn').textContent = 'Đang đăng nhập...';
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        document.getElementById('loginSubmitBtn').textContent = 'Đăng nhập';
+        onLoginSuccess(result);
+      })
+      .withFailureHandler(function(error) {
+        document.getElementById('loginSubmitBtn').textContent = 'Đăng nhập';
+        errorBox.textContent = (error && error.message) || 'Đăng nhập thất bại.';
+        errorBox.classList.add('show');
+      })
+      .login(email, password);
+  }
+
+  function onLoginSuccess(result) {
+    sessionToken = result.token;
+    sessionInfo = { email: result.email, role: result.role, team: result.team, fileTeam: result.fileTeam };
+    sessionExpiresAt = result.expiresAt;
+
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        token: sessionToken,
+        info: sessionInfo,
+        expiresAt: sessionExpiresAt
+      }));
+    } catch (e) {}
+
+    document.getElementById('loginPassword').value = '';
+    hideLoginScreen();
+    afterLoginReady();
+  }
+
+  function restoreSessionFromStorage() {
+    let raw = null;
+    try {
+      raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    } catch (e) {}
+
+    if (!raw) return false;
+
+    try {
+      const saved = JSON.parse(raw);
+      if (!saved || !saved.token || !saved.expiresAt) return false;
+      if (Date.now() >= saved.expiresAt) return false;
+
+      sessionToken = saved.token;
+      sessionInfo = saved.info;
+      sessionExpiresAt = saved.expiresAt;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function afterLoginReady() {
+    hideLoginScreen();
+    applyRoleRestrictions();
+    resetToWDPanel_(); // luôn xoá sạch dữ liệu ToWD của phiên đăng nhập TRƯỚC
+    scheduleAutoLogout();
+    bootstrap();
+  }
+
+  /**
+   * resetToWDPanel_ — xoá sạch kết quả tra cứu ToWD cũ (của tài khoản
+   * đăng nhập trước đó) mỗi khi có phiên đăng nhập mới, tránh hiện
+   * nhầm thông tin của người khác.
+   */
+  function resetToWDPanel_() {
+    const area = document.getElementById('towdResult');
+    if (area) area.innerHTML = '';
+
+    const input = document.getElementById('towdSearch');
+    if (input) {
+      input.value = (sessionInfo && sessionInfo.role === 'Agent') ? sessionInfo.email : '';
+    }
+  }
+
+  function applyRoleRestrictions() {
+    if (!sessionInfo) return;
+
+    const chip = document.getElementById('userChip');
+    chip.style.display = '';
+    document.getElementById('userAvatar').textContent =
+      (sessionInfo.email || '?').charAt(0).toUpperCase();
+
+    let label = sessionInfo.email + ' · ' + sessionInfo.role;
+    if (sessionInfo.team) label += ' (' + sessionInfo.team + (sessionInfo.fileTeam ? ' · ' + sessionInfo.fileTeam : '') + ')';
+    document.getElementById('userLabel').textContent = label;
+
+    const towdInput = document.getElementById('towdSearch');
+    if (sessionInfo.role === 'Agent') {
+      towdInput.value = sessionInfo.email;
+      towdInput.disabled = true;
+      towdInput.title = 'Tài khoản Agent chỉ xem được công của chính mình.';
+    } else {
+      towdInput.disabled = false;
+      towdInput.title = '';
+    }
+  }
+
+  function scheduleAutoLogout() {
+    if (sessionTimeoutHandle) clearTimeout(sessionTimeoutHandle);
+
+    const remaining = sessionExpiresAt - Date.now();
+    if (remaining <= 0) {
+      logoutNow();
+      return;
+    }
+
+    sessionTimeoutHandle = setTimeout(function() {
+      setStatus('⏰ Phiên đăng nhập đã hết hạn sau 2 tiếng, vui lòng đăng nhập lại.');
+      logoutNow();
+    }, remaining);
+  }
+
+  function logoutNow() {
+    const token = sessionToken;
+    sessionToken = null;
+    sessionInfo = null;
+    sessionExpiresAt = 0;
+
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (e) {}
+
+    if (token) {
+      google.script.run
+        .withFailureHandler(function() {})
+        .logout(token);
+    }
+
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    showLoginScreen();
+  }
+
+  let forgotStage = 'email'; // 'email' | 'code' | 'password'
+  let forgotResetToken = null;
+
+  function showForgotPanel() {
+    document.getElementById('loginCardMain').style.display = 'none';
+    document.getElementById('forgotCard').style.display = '';
+    forgotStage = 'email';
+    forgotResetToken = null;
+    document.getElementById('forgotEmail').value = document.getElementById('loginEmail').value.trim();
+    document.getElementById('forgotCode').value = '';
+    document.getElementById('forgotNewPassword').value = '';
+    document.getElementById('forgotNewPassword2').value = '';
+    clearForgotMessages();
+    updateForgotStageUI();
+  }
+
+  function backToLogin() {
+    document.getElementById('forgotCard').style.display = 'none';
+    document.getElementById('loginCardMain').style.display = '';
+    clearForgotMessages();
+  }
+
+  function clearForgotMessages() {
+    document.getElementById('forgotError').classList.remove('show');
+    document.getElementById('forgotMsg').classList.remove('show');
+  }
+
+  function updateForgotStageUI() {
+    document.getElementById('forgotStepEmail').style.display = forgotStage === 'email' ? '' : 'none';
+    document.getElementById('forgotStepCode').style.display = forgotStage === 'code' ? '' : 'none';
+    document.getElementById('forgotStepPassword').style.display = forgotStage === 'password' ? '' : 'none';
+    document.getElementById('forgotStepPassword2').style.display = forgotStage === 'password' ? '' : 'none';
+
+    const sub = document.getElementById('forgotSub');
+    const btn = document.getElementById('forgotSubmitBtn');
+
+    if (forgotStage === 'email') {
+      sub.textContent = 'Nhập email để nhận mã xác minh';
+      btn.textContent = 'Gửi mã xác minh';
+    } else if (forgotStage === 'code') {
+      sub.textContent = 'Nhập mã xác minh vừa được gửi tới email của bạn';
+      btn.textContent = 'Xác minh';
+    } else {
+      sub.textContent = 'Đặt mật khẩu mới cho tài khoản của bạn';
+      btn.textContent = 'Đặt lại mật khẩu';
+    }
+  }
+
+  /**
+   * callWithTimeout_ — gọi google.script.run có kèm timeout ở phía
+   * trình duyệt. Nếu server không phản hồi (thành công hay lỗi) sau
+   * timeoutMs, tự báo lỗi rõ ràng thay vì để nút bị treo vô thời hạn
+   * (giúp phát hiện các trường hợp: chưa deploy bản mới, chưa cấp
+   * quyền, hoặc mất kết nối).
+   */
+  function callWithTimeout_(fnName, args, onSuccess, onError, timeoutMs) {
+    let settled = false;
+
+    const timer = setTimeout(function() {
+      if (settled) return;
+      settled = true;
+      onError({
+        message: 'Không nhận được phản hồi từ server sau ' + Math.round(timeoutMs / 1000) +
+          's. Nguyên nhân thường gặp: (1) chưa tạo bản Deploy MỚI (New deployment) sau khi cập nhật code — chỉ Save là chưa đủ; (2) chưa cấp quyền gửi email cho script; (3) mất kết nối mạng. Vui lòng kiểm tra rồi thử lại.'
+      });
+    }, timeoutMs);
+
+    const runner = google.script.run
+      .withSuccessHandler(function(result) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        onSuccess(result);
+      })
+      .withFailureHandler(function(error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        onError(error);
+      });
+
+    runner[fnName].apply(runner, args);
+  }
+
+  function forgotStepSubmit() {
+    clearForgotMessages();
+    const errorBox = document.getElementById('forgotError');
+    const msgBox = document.getElementById('forgotMsg');
+    const email = document.getElementById('forgotEmail').value.trim();
+    const btn = document.getElementById('forgotSubmitBtn');
+
+    if (!email) {
+      errorBox.textContent = 'Vui lòng nhập email.';
+      errorBox.classList.add('show');
+      return;
+    }
+
+    if (forgotStage === 'email') {
+      btn.textContent = 'Đang gửi...';
+      callWithTimeout_(
+        'requestPasswordReset',
+        [email],
+        function(result) {
+          updateForgotStageUI(); // reset lại text nút trước khi đổi bước
+          msgBox.textContent = (result && result.message) || 'Đã gửi mã xác minh.';
+          msgBox.classList.add('show');
+          forgotStage = 'code';
+          updateForgotStageUI();
+        },
+        function(error) {
+          btn.textContent = 'Gửi mã xác minh';
+          errorBox.textContent = (error && error.message) || 'Không gửi được mã xác minh.';
+          errorBox.classList.add('show');
+        },
+        15000
+      );
+      return;
+    }
+
+    if (forgotStage === 'code') {
+      const code = document.getElementById('forgotCode').value.trim();
+      if (!code) {
+        errorBox.textContent = 'Vui lòng nhập mã xác minh.';
+        errorBox.classList.add('show');
+        return;
+      }
+
+      btn.textContent = 'Đang xác minh...';
+      callWithTimeout_(
+        'verifyResetCode',
+        [email, code],
+        function(result) {
+          forgotResetToken = result.resetToken;
+          msgBox.textContent = 'Xác minh thành công, nhập mật khẩu mới.';
+          msgBox.classList.add('show');
+          forgotStage = 'password';
+          updateForgotStageUI();
+        },
+        function(error) {
+          btn.textContent = 'Xác minh';
+          errorBox.textContent = (error && error.message) || 'Mã xác minh không đúng.';
+          errorBox.classList.add('show');
+        },
+        15000
+      );
+      return;
+    }
+
+    if (forgotStage === 'password') {
+      const p1 = document.getElementById('forgotNewPassword').value;
+      const p2 = document.getElementById('forgotNewPassword2').value;
+
+      if (!p1 || p1.length < 6) {
+        errorBox.textContent = 'Mật khẩu mới cần tối thiểu 6 ký tự.';
+        errorBox.classList.add('show');
+        return;
+      }
+      if (p1 !== p2) {
+        errorBox.textContent = 'Mật khẩu nhập lại không khớp.';
+        errorBox.classList.add('show');
+        return;
+      }
+
+      btn.textContent = 'Đang cập nhật...';
+      callWithTimeout_(
+        'resetPassword',
+        [email, forgotResetToken, p1],
+        function(result) {
+          msgBox.textContent = (result && result.message) || 'Đã đổi mật khẩu thành công.';
+          msgBox.classList.add('show');
+          document.getElementById('loginEmail').value = email;
+          document.getElementById('loginPassword').value = '';
+          setTimeout(backToLogin, 1200);
+        },
+        function(error) {
+          btn.textContent = 'Đặt lại mật khẩu';
+          errorBox.textContent = (error && error.message) || 'Không đổi được mật khẩu.';
+          errorBox.classList.add('show');
+        },
+        15000
+      );
+      return;
+    }
+  }
+
+  /*
+   * Bọc mọi failure handler dữ liệu: nếu lỗi là do hết phiên,
+   * ép quay lại màn hình đăng nhập thay vì hiện lỗi chung chung.
+   */
+  function handleAuthAwareError(error) {
+    const message = (error && error.message) || '';
+    if (message.indexOf('hết hạn') >= 0 || message.indexOf('đăng nhập') >= 0) {
+      showLoading(false);
+      setStatus('⏰ ' + message);
+      logoutNow();
+      return;
+    }
+    showError(error);
+  }
+
+  function bindEvents() {
+    document.getElementById('monthSelect').addEventListener('change', loadDates);
+
+    document.addEventListener('click', function(e) {
+      const popup = document.getElementById('datePickerPopup');
+      const btn = document.getElementById('datePickerBtn');
+      if (!popup || !btn || !datePickerOpen) return;
+      if (!popup.contains(e.target) && !btn.contains(e.target)) {
+        closeDatePicker();
+      }
+    });
+    document.getElementById('searchInput').addEventListener('input', debounce(filterSchedule, 100));
+    document.getElementById('towdSearch').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') searchToWD();
+    });
+  }
+
+  function initLiquidGL() {
+    // Đã chuyển hẳn sang giao diện Neo-brutalism (không dùng hiệu ứng
+    // kính lỏng WebGL nữa) — hàm giữ lại rỗng để không phải sửa chỗ
+    // gọi initLiquidGL() ở initializeApp().
+  }
+
+  function bootstrap() {
+    showLoading(true, 'Đang tải dữ liệu đầu tiên...');
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showLoading(false);
+
+        months = result.months || [];
+        dates = result.dates || [];
+        currentMonth = result.month || '';
+        currentDate = result.date || '';
+        todayParts = result.today || null;
+        bundle = result.bundle || null;
+
+        renderMonths();
+        renderDates();
+        renderCurrentTab();
+
+        setStatus(
+          'Sẵn sàng' +
+          (result.perfMode ? ' · ' + result.perfMode : '')
+        );
+
+        document.getElementById('statusRight').textContent =
+          'Server ' + (result.serverMs || 0) + 'ms';
+
+        startPolling();
+      })
+      .withFailureHandler(handleAuthAwareError)
+      .getBootstrap(sessionToken);
+  }
+
+  function renderMonths() {
+    const select = document.getElementById('monthSelect');
+    select.innerHTML = '';
+
+    months.forEach(function(item) {
+      const opt = document.createElement('option');
+      opt.value = item.month;
+      opt.textContent = item.month;
+      select.appendChild(opt);
+    });
+
+    if (currentMonth) select.value = currentMonth;
+  }
+
+  function renderDates() {
+    updateDatePickerLabel();
+  }
+
+  let datePickerOpen = false;
+
+  function toggleDatePicker(e) {
+    e.stopPropagation();
+    datePickerOpen = !datePickerOpen;
+    document.getElementById('datePickerPopup').classList.toggle('open', datePickerOpen);
+    if (datePickerOpen) renderCalendarGrid();
+  }
+
+  function closeDatePicker() {
+    datePickerOpen = false;
+    document.getElementById('datePickerPopup').classList.remove('open');
+  }
+
+  function updateDatePickerLabel() {
+    document.getElementById('datePickerLabel').textContent = currentDate || 'Chọn ngày';
+    const monthLabel = document.getElementById('dpMonthLabel');
+    if (monthLabel) monthLabel.textContent = currentMonth ? ('Tháng ' + currentMonth) : '';
+  }
+
+  function renderCalendarGrid() {
+    const grid = document.getElementById('dpGrid');
+    grid.innerHTML = '';
+    if (!currentMonth) return;
+
+    const parts = currentMonth.split('-').map(Number); // [MM, YYYY]
+    const monthNum = parts[0];
+    const year = parts[1];
+    if (!monthNum || !year) return;
+
+    const totalDays = new Date(year, monthNum, 0).getDate();
+    const firstWeekday = (new Date(year, monthNum - 1, 1).getDay() + 6) % 7; // Thứ 2 = 0
+
+    for (let i = 0; i < firstWeekday; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'dp-cell dp-empty';
+      grid.appendChild(empty);
+    }
+
+    for (let d = 1; d <= totalDays; d++) {
+      const dd = (d < 10 ? '0' : '') + d;
+      const mm = (monthNum < 10 ? '0' : '') + monthNum;
+      const dateStr = dd + '/' + mm;
+
+      const cell = document.createElement('div');
+      cell.className = 'dp-cell';
+      cell.textContent = String(d);
+
+      const available = dates.indexOf(dateStr) >= 0;
+      const isToday = todayParts && todayParts.month === currentMonth && todayParts.date === dateStr;
+      const isSelected = dateStr === currentDate;
+
+      if (available) {
+        cell.classList.add('dp-available');
+        cell.addEventListener('click', function() { selectDate(dateStr); });
+      } else {
+        cell.classList.add('dp-disabled');
+      }
+      if (isToday) cell.classList.add('dp-today');
+      if (isSelected) cell.classList.add('dp-selected');
+
+      grid.appendChild(cell);
+    }
+  }
+
+  function selectDate(dateStr) {
+    currentDate = dateStr;
+    updateDatePickerLabel();
+    closeDatePicker();
+    loadSchedule(true);
+  }
+
+  function loadDates() {
+    currentMonth = document.getElementById('monthSelect').value;
+    currentDate = '';
+
+    showLoading(true, 'Đang tải danh sách ngày...');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showLoading(false);
+        dates = result || [];
+
+        if (dates.length) {
+          if (todayParts && currentMonth === todayParts.month && dates.indexOf(todayParts.date) >= 0) {
+            currentDate = todayParts.date;
+          } else {
+            currentDate = dates[0];
+          }
+          updateDatePickerLabel();
+          loadSchedule(true);
+        } else {
+          currentDate = '';
+          updateDatePickerLabel();
+          bundle = null;
+          clearSchedule();
+        }
+      })
+      .withFailureHandler(handleAuthAwareError)
+      .getDates(currentMonth, sessionToken);
+  }
+
+  function loadSchedule(showLoader, forceRefresh) {
+    currentMonth = document.getElementById('monthSelect').value;
+
+    if (!currentMonth || !currentDate) {
+      clearSchedule();
+      return;
+    }
+
+    if (showLoader !== false) {
+      showLoading(true, 'Đang tải lịch...');
+    }
+
+    const requestStarted = performance.now();
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showLoading(false);
+        bundle = result || null;
+
+        renderCurrentTab();
+
+        const ms = Math.round(performance.now() - requestStarted);
+        document.getElementById('statusRight').textContent =
+          (result.rowsCS ? result.rowsCS.length : 0) +
+          ' CS · ' +
+          (result.rowsBO ? result.rowsBO.length : 0) +
+          ' BO · ' + ms + 'ms';
+
+        showFileErrorsWarning_(result);
+      })
+      .withFailureHandler(handleAuthAwareError)
+      .getScheduleBundle(currentMonth, currentDate, !!forceRefresh, sessionToken);
+  }
+
+  /**
+   * showFileErrorsWarning_ — nếu 1 hoặc nhiều file lịch (L1/L2) đọc
+   * lỗi trong khi các file khác vẫn đọc được, backend vẫn trả về
+   * KẾT QUẢ THÀNH CÔNG (chỉ thiếu phần của file lỗi) để không chặn
+   * người dùng hoàn toàn — nhưng phải cảnh báo rõ ràng ở đây, nếu
+   * không người dùng sẽ tưởng nhầm là "thiếu dữ liệu team X" mà
+   * không biết là do lỗi đọc file.
+   */
+  function showFileErrorsWarning_(result) {
+    const el = document.getElementById('statusDot');
+    if (!result || !result.errors || !result.errors.length) {
+      if (el) { el.style.background = ''; el.title = ''; }
+      return;
+    }
+
+    const msg = result.errors.map(function(e) {
+      return (e.team || '?') + ': ' + e.message;
+    }).join(' | ');
+
+    setStatus('⚠️ Lỗi đọc ' + result.errors.length + ' file lịch (thiếu dữ liệu team tương ứng): ' + msg);
+    if (el) { el.style.background = '#ff5470'; el.title = msg; }
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+
+    document.querySelectorAll('.tab').forEach(function(el) {
+      el.classList.remove('active');
+    });
+
+    document.getElementById(
+      tab === 'CS' ? 'tabCS' :
+      tab === 'BO' ? 'tabBO' :
+      tab === 'TODW' ? 'tabTODW' : 'tabATT'
+    ).classList.add('active');
+
+    const scheduleBar = document.getElementById('scheduleSearchBar');
+    const tableArea = document.getElementById('tableArea');
+    const towdArea = document.getElementById('towdArea');
+    const attArea = document.getElementById('attArea');
+
+    if (tab === 'TODW') {
+      scheduleBar.style.display = 'none';
+      tableArea.style.display = 'none';
+      towdArea.style.display = '';
+      attArea.style.display = 'none';
+      setStatus('Công ToWD');
+      document.getElementById('statusRight').textContent = '';
+      return;
+    }
+
+    if (tab === 'ATT') {
+      scheduleBar.style.display = 'none';
+      tableArea.style.display = 'none';
+      towdArea.style.display = 'none';
+      attArea.style.display = '';
+      setStatus('Chuyên cần');
+      document.getElementById('statusRight').textContent = '';
+      return;
+    }
+
+    scheduleBar.style.display = '';
+    tableArea.style.display = '';
+    towdArea.style.display = 'none';
+    attArea.style.display = 'none';
+
+    renderCurrentTab();
+  }
+
+  function renderCurrentTab() {
+    if (!bundle) {
+      clearSchedule();
+      return;
+    }
+
+    if (currentTab === 'CS') {
+      renderScheduleRows(
+        bundle.rowsCS || [],
+        bundle.headersCS,
+        'Lịch làm CS'
+      );
+    } else if (currentTab === 'BO') {
+      renderScheduleRows(
+        bundle.rowsBO || [],
+        bundle.headersBO,
+        'Lịch làm BO'
+      );
+    }
+  }
+
+  function renderScheduleRows(rows, headers, title) {
+    const area = document.getElementById('tableArea');
+    area.innerHTML = '';
+
+    setStatus(
+      title + ' · ' + currentMonth + ' · ' + currentDate
+    );
+
+    if (!rows.length || !headers) {
+      area.innerHTML = emptyHtml('📭', 'Trống', 'Không có lịch ca được tìm thấy.');
+      document.getElementById('statusRight').textContent = '0 dòng';
+      populateScheduleFilters_([]);
+      return;
+    }
+
+    populateScheduleFilters_(rows);
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+
+    appendTh(hr, '', 'col-dot');
+
+    appendTh(hr, headers.left[0], 'col-a');
+    appendTh(hr, headers.left[1], 'col-c');
+    appendTh(hr, headers.left[2], 'col-d');
+    appendTh(hr, headers.left[3], 'col-e');
+    appendTh(hr, headers.left[4], 'col-f');
+
+    headers.hours.forEach(function(h) {
+      appendTh(hr, h || '', 'hour-col');
+    });
+
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+
+    rows.forEach(function(row) {
+      const tr = document.createElement('tr');
+      tr.dataset.search = [
+        row.a.value,
+        row.c.value,
+        row.d.value
+      ].join(' ').toLowerCase();
+      tr.dataset.team = (row.a.value || '').trim();
+      tr.dataset.shift = extractShiftStart_(row.e.value);
+
+      // Dấu chấm
+      const dotTd = document.createElement('td');
+      dotTd.className = 'col-dot';
+
+      const dot = document.createElement('span');
+      dot.className = 'row-dot' +
+        (isCurrentWorkingRow(row) ? ' working' : '');
+
+      dot.title = isCurrentWorkingRow(row)
+        ? 'Đang trong giờ làm'
+        : 'Không trong giờ làm';
+
+      dotTd.appendChild(dot);
+      tr.appendChild(dotTd);
+
+      appendCell(tr, row.a, 'col-a');
+      appendCell(tr, row.c, 'col-c');
+      appendCell(tr, row.d, 'col-d');
+      appendCell(tr, row.e, 'col-e');
+      appendCell(tr, row.f, 'col-f');
+
+      row.hours.forEach(function(cell) {
+        appendCell(tr, cell, 'hour-col', true);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    area.appendChild(table);
+
+    document.getElementById('statusRight').textContent =
+      rows.length + ' dòng';
+
+    filterSchedule();
+  }
+
+  function appendTh(tr, text, cls) {
+    const th = document.createElement('th');
+    th.className = cls || '';
+    th.textContent = text || '';
+    tr.appendChild(th);
+  }
+
+  /**
+   * readableTextColor_ — tính độ sáng tương đối (relative luminance)
+   * của màu nền, nếu quá tối thì trả về màu chữ sáng, ngược lại trả
+   * về màu chữ tối (mặc định), để chữ luôn đọc được trên mọi màu nền.
+   */
+  function readableTextColor_(bg) {
+    const rgb = parseColorToRgb_(bg);
+    if (!rgb) return '';
+
+    // Công thức luminance chuẩn WCAG (đơn giản hoá, đủ dùng cho UI)
+    const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    return luminance < 0.5 ? '#f5f7fb' : '#26292e';
+  }
+
+  function parseColorToRgb_(color) {
+    if (!color) return null;
+
+    if (color.charAt(0) === '#') {
+      let hex = color.slice(1);
+      if (hex.length === 3) {
+        hex = hex.split('').map(function(c) { return c + c; }).join('');
+      }
+      if (hex.length !== 6) return null;
+      return {
+        r: parseInt(hex.substring(0, 2), 16),
+        g: parseInt(hex.substring(2, 4), 16),
+        b: parseInt(hex.substring(4, 6), 16)
+      };
+    }
+
+    const match = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (match) {
+      return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
+    }
+
+    return null;
+  }
+
+  /**
+   * bindNoteTooltip_ — hiện tooltip tuỳ chỉnh (đồng bộ style
+   * neo-brutalism) ngay khi con trỏ lướt vào BẤT KỲ đâu trong ô,
+   * không cần trúng đúng icon "i" nhỏ. Thay cho thuộc tính title mặc
+   * định của trình duyệt (chậm, trễ ~1s, không đổi được giao diện).
+   */
+  function ensureNoteTooltipEl_() {
+    let el = document.getElementById('noteTooltip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'noteTooltip';
+      el.className = 'note-tooltip';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function positionNoteTooltip_(el, x, y) {
+    const pad = 14;
+    let left = x + pad;
+    let top = y + pad;
+    const rect = el.getBoundingClientRect();
+
+    if (left + rect.width > window.innerWidth - 8) {
+      left = Math.max(8, x - rect.width - pad);
+    }
+    if (top + rect.height > window.innerHeight - 8) {
+      top = Math.max(8, y - rect.height - pad);
+    }
+
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+  }
+
+  function hideNoteTooltip_() {
+    const el = document.getElementById('noteTooltip');
+    if (el) el.classList.remove('show');
+  }
+
+  let noteTooltipHideTimer = null;
+
+  function bindNoteTooltip_(td) {
+    td.addEventListener('mouseenter', function(e) {
+      const el = ensureNoteTooltipEl_();
+      el.textContent = td.dataset.note || '';
+      el.classList.add('show');
+      positionNoteTooltip_(el, e.clientX, e.clientY);
+    });
+
+    td.addEventListener('mousemove', function(e) {
+      const el = document.getElementById('noteTooltip');
+      if (el && el.classList.contains('show')) {
+        positionNoteTooltip_(el, e.clientX, e.clientY);
+      }
+    });
+
+    td.addEventListener('mouseleave', hideNoteTooltip_);
+
+    // Hỗ trợ chạm trên mobile: chạm vào ô hiện tooltip, tự ẩn sau 2.5s
+    // hoặc khi chạm chỗ khác.
+    td.addEventListener('touchstart', function(e) {
+      const touch = e.touches && e.touches[0];
+      if (!touch) return;
+      const el = ensureNoteTooltipEl_();
+      el.textContent = td.dataset.note || '';
+      el.classList.add('show');
+      positionNoteTooltip_(el, touch.clientX, touch.clientY);
+      clearTimeout(noteTooltipHideTimer);
+      noteTooltipHideTimer = setTimeout(hideNoteTooltip_, 2500);
+    }, { passive: true });
+  }
+
+  function appendCell(tr, payload, cls, hour) {
+    const td = document.createElement('td');
+    td.className = cls || '';
+
+    if (payload && payload.bg) {
+      td.style.backgroundColor = payload.bg;
+      td.style.color = readableTextColor_(payload.bg);
+    }
+
+    const value = payload ? (
+      payload.display != null ? payload.display : payload.value
+    ) : '';
+
+    const span = document.createElement('span');
+    span.className = 'cell-value';
+    span.textContent = value || '';
+    td.appendChild(span);
+
+    if (payload && payload.note) {
+      td.classList.add('has-note');
+      td.dataset.note = payload.note;
+      bindNoteTooltip_(td);
+
+      const mark = document.createElement('span');
+      mark.className = 'note-mark';
+      mark.textContent = 'i';
+      td.appendChild(mark);
+    }
+
+    if (hour) {
+      td.style.textAlign = 'center';
+    }
+
+    tr.appendChild(td);
+  }
+
+  function isCurrentWorkingRow(row) {
+    if (!todayParts) return false;
+    if (currentMonth !== todayParts.month) return false;
+    if (currentDate !== todayParts.date) return false;
+    if (!row.wh) return false;
+
+    const parsed = row.wh;
+    if (parsed.startMin == null || parsed.endMin == null) return false;
+
+    const hm = todayParts.time.split(':').map(Number);
+    const nowMin = hm[0] * 60 + hm[1];
+
+    // Ca bình thường
+    if (parsed.startMin <= parsed.endMin) {
+      return nowMin >= parsed.startMin && nowMin <= parsed.endMin;
+    }
+
+    // Ca qua đêm, ví dụ 22:00 - 06:00
+    return nowMin >= parsed.startMin || nowMin <= parsed.endMin;
+  }
+
+  function debounce(fn, wait) {
+    let handle = null;
+    return function() {
+      const args = arguments;
+      const ctx = this;
+      clearTimeout(handle);
+      handle = setTimeout(function() { fn.apply(ctx, args); }, wait);
+    };
+  }
+
+  function filterSchedule() {
+    const keyword = String(
+      document.getElementById('searchInput').value || ''
+    ).trim().toLowerCase();
+    const teamPick = document.getElementById('teamFilter').value;
+    const shiftPick = document.getElementById('shiftFilter').value;
+
+    const rows = document.querySelectorAll('#tableArea tbody tr');
+    let visible = 0;
+
+    rows.forEach(function(row) {
+      const matchKeyword = !keyword || String(row.dataset.search || '').includes(keyword);
+      const matchTeam = !teamPick || row.dataset.team === teamPick;
+      const matchShift = !shiftPick || row.dataset.shift === shiftPick;
+      const show = matchKeyword && matchTeam && matchShift;
+
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    if (rows.length) {
+      document.getElementById('statusRight').textContent =
+        visible + '/' + rows.length + ' dòng';
+    }
+  }
+
+  /**
+   * populateScheduleFilters_ — đổ danh sách Team/Ca làm việc (lấy
+   * theo giá trị THỰC TẾ đang có trong dữ liệu vừa tải) vào 2 ô
+   * dropdown lọc, giữ nguyên lựa chọn cũ nếu vẫn còn hợp lệ.
+   */
+  let lastScheduleRows = [];
+
+  /**
+   * extractShiftStart_ — chỉ lấy phần GIỜ BẮT ĐẦU của ca làm việc.
+   * "06:00 - 15:00" -> "06:00"; "Ca 1 - Ca 2" -> "Ca 1"; "OFF" -> "OFF".
+   */
+  function extractShiftStart_(shift) {
+    const s = String(shift || '').trim();
+    if (!s) return '';
+    const idx = s.indexOf('-');
+    return idx >= 0 ? s.substring(0, idx).trim() : s;
+  }
+
+  function populateScheduleFilters_(rows) {
+    lastScheduleRows = rows || [];
+
+    const teamSelect = document.getElementById('teamFilter');
+    if (!teamSelect) return;
+
+    const prevTeam = teamSelect.value;
+
+    const teams = [];
+    const seenTeam = {};
+    lastScheduleRows.forEach(function(row) {
+      const t = (row.a && row.a.value || '').trim();
+      if (t && !seenTeam[t]) { seenTeam[t] = true; teams.push(t); }
+    });
+    teams.sort(function(a, b) { return a.localeCompare(b, 'vi'); });
+
+    fillSelectOptions_(teamSelect, teams, 'Tất cả Team');
+    if (teams.indexOf(prevTeam) >= 0) teamSelect.value = prevTeam;
+
+    updateShiftFilterOptions_();
+  }
+
+  function fillSelectOptions_(select, values, allLabel) {
+    select.innerHTML = '';
+    const optAll = document.createElement('option');
+    optAll.value = '';
+    optAll.textContent = allLabel;
+    select.appendChild(optAll);
+
+    values.forEach(function(v) {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+  }
+
+  /**
+   * updateShiftFilterOptions_ — tính lại danh sách giờ bắt đầu ca
+   * làm việc CHỈ TRONG PHẠM VI team đang được chọn ở dropdown Team
+   * (hoặc toàn bộ nếu chọn "Tất cả Team"). Gọi lại mỗi khi đổi Team.
+   */
+  function updateShiftFilterOptions_() {
+    const teamSelect = document.getElementById('teamFilter');
+    const shiftSelect = document.getElementById('shiftFilter');
+    if (!teamSelect || !shiftSelect) return;
+
+    const teamPick = teamSelect.value;
+    const prevShift = shiftSelect.value;
+
+    const shifts = [];
+    const seenShift = {};
+
+    lastScheduleRows.forEach(function(row) {
+      const t = (row.a && row.a.value || '').trim();
+      if (teamPick && t !== teamPick) return;
+
+      const s = extractShiftStart_(row.e && row.e.value);
+      if (s && !seenShift[s]) { seenShift[s] = true; shifts.push(s); }
+    });
+
+    shifts.sort(function(a, b) { return a.localeCompare(b, 'vi'); });
+
+    fillSelectOptions_(shiftSelect, shifts, 'Tất cả Ca');
+    shiftSelect.value = shifts.indexOf(prevShift) >= 0 ? prevShift : '';
+  }
+
+  function onTeamFilterChange_() {
+    updateShiftFilterOptions_();
+    filterSchedule();
+  }
+
+  function searchToWD() {
+    const email = sessionInfo && sessionInfo.role === 'Agent'
+      ? sessionInfo.email
+      : String(document.getElementById('towdSearch').value || '').trim();
+
+    if (!email) {
+      document.getElementById('towdResult').innerHTML = emptyHtml(
+        '✉️',
+        'Nhập email',
+        'Không nhập email thì không hiển thị dữ liệu.'
+      );
+      return;
+    }
+
+    showLoading(true, 'Đang tìm ToWD...');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showLoading(false);
+        renderToWD(result);
+      })
+      .withFailureHandler(handleAuthAwareError)
+      .getToWDByEmail(email, currentMonth, sessionToken);
+  }
+
+  function renderToWD(result) {
+    const area = document.getElementById('towdResult');
+    area.innerHTML = '';
+
+    if (!result || !result.matches || !result.matches.length) {
+      area.innerHTML = emptyHtml(
+        '📭',
+        'Không tìm thấy',
+        'Không có email này trong sheet ToWD của tháng ' + (currentMonth || '') + '.'
+      );
+      document.getElementById('statusRight').textContent =
+        '0 kết quả';
+      return;
+    }
+
+    result.matches.forEach(function(match, index) {
+      const box = document.createElement('div');
+      box.className = 'section-card';
+
+      const title = document.createElement('div');
+      title.className = 'section-title';
+      title.textContent =
+        'Nhân sự ' + (index + 1) +
+        ' · ' + (match.teams || []).join(', ') +
+        ' · Tháng ' + (currentMonth || '') +
+        ' · row ' + match.rowNumber;
+      box.appendChild(title);
+
+      const layout = document.createElement('div');
+      layout.className = 'towd-layout';
+
+      const left = document.createElement('div');
+      left.className = 'towd-left';
+      left.appendChild(renderToWDGeneral(match.general));
+
+      const monthlyBox = document.createElement('div');
+      monthlyBox.className = 'towd-box';
+      monthlyBox.appendChild(renderToWDSection(match.monthly));
+      left.appendChild(monthlyBox);
+
+      layout.appendChild(left);
+
+      const right = document.createElement('div');
+      right.className = 'towd-right';
+
+      [match.regular, match.overtime, match.holiday].forEach(function(section) {
+        const sectionBox = document.createElement('div');
+        sectionBox.className = 'towd-box';
+        sectionBox.appendChild(renderToWDSection(section));
+        right.appendChild(sectionBox);
+      });
+
+      layout.appendChild(right);
+      box.appendChild(layout);
+      area.appendChild(box);
+    });
+
+    document.getElementById('statusRight').textContent =
+      result.matches.length + ' kết quả';
+  }
+
+  function renderToWDGeneral(section) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'section-card towd-general';
+
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = section.title;
+    wrapper.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'towd-vertical-table';
+    const tbody = document.createElement('tbody');
+
+    (section.headers || []).forEach(function(label, i) {
+      const tr = document.createElement('tr');
+
+      const th = document.createElement('th');
+      th.textContent = label || '';
+
+      const td = document.createElement('td');
+      const val = (section.data || [])[i];
+      td.textContent = val == null ? '' : val;
+
+      tr.appendChild(th);
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+    return wrapper;
+  }
+
+  /* ---------- TAB 4: CHUYÊN CẦN (sheet ATT) ---------- */
+
+  function searchAttendance() {
+    const email = sessionInfo && sessionInfo.role === 'Agent'
+      ? sessionInfo.email
+      : String(document.getElementById('attSearch').value || '').trim();
+
+    if (!email) {
+      document.getElementById('attResult').innerHTML = emptyHtml(
+        '✉️',
+        'Nhập email',
+        'Không nhập email thì không hiển thị dữ liệu.'
+      );
+      return;
+    }
+
+    showLoading(true, 'Đang tìm Chuyên cần...');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showLoading(false);
+        renderAttendance(result);
+      })
+      .withFailureHandler(handleAuthAwareError)
+      .getAttendanceByEmail(email, currentMonth, sessionToken);
+  }
+
+  function renderAttendance(result) {
+    const area = document.getElementById('attResult');
+    area.innerHTML = '';
+
+    if (!result || !result.matches || !result.matches.length) {
+      area.innerHTML = emptyHtml(
+        '📭',
+        'Không tìm thấy',
+        'Không có email này trong sheet ATT của tháng ' + (currentMonth || '') + '.'
+      );
+      document.getElementById('statusRight').textContent = '0 kết quả';
+      return;
+    }
+
+    result.matches.forEach(function(match, index) {
+      const box = document.createElement('div');
+      box.className = 'section-card';
+
+      const title = document.createElement('div');
+      title.className = 'section-title';
+      title.textContent =
+        'Nhân sự ' + (index + 1) +
+        ' · ' + (match.teams || []).join(', ') +
+        ' · Tháng ' + (currentMonth || '') +
+        ' · row ' + match.rowNumber;
+      box.appendChild(title);
+
+      const layout = document.createElement('div');
+      layout.className = 'towd-layout';
+
+      const left = document.createElement('div');
+      left.className = 'towd-left';
+      left.appendChild(renderToWDGeneral(match.general));
+
+      [match.schedule, match.wfm, match.result].forEach(function(section) {
+        const sectionBox = document.createElement('div');
+        sectionBox.className = 'towd-box';
+        sectionBox.appendChild(renderToWDSection(section));
+        left.appendChild(sectionBox);
+      });
+
+      layout.appendChild(left);
+
+      const right = document.createElement('div');
+      right.className = 'towd-right';
+
+      [match.surplus, match.late, match.makeup].forEach(function(section) {
+        const sectionBox = document.createElement('div');
+        sectionBox.className = 'towd-box';
+        sectionBox.appendChild(renderToWDSection(section));
+        right.appendChild(sectionBox);
+      });
+
+      layout.appendChild(right);
+      box.appendChild(layout);
+      area.appendChild(box);
+    });
+
+    document.getElementById('statusRight').textContent = result.matches.length + ' kết quả';
+  }
+
+  function renderToWDSection(section) {
+    const wrapper = document.createElement('div');
+
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = section.title;
+    wrapper.appendChild(title);
+
+    const scroller = document.createElement('div');
+    scroller.className = 'section-table';
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+
+    (section.headers || []).forEach(function(value) {
+      appendTh(trh, value || '', '');
+    });
+
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    const tr = document.createElement('tr');
+
+    (section.data || []).forEach(function(value) {
+      const td = document.createElement('td');
+      td.textContent = value == null ? '' : value;
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+    table.appendChild(tbody);
+    scroller.appendChild(table);
+    wrapper.appendChild(scroller);
+
+    return wrapper;
+  }
+
+  function refreshNow() {
+    if (currentTab === 'TODW') {
+      const email = document.getElementById('towdSearch').value.trim();
+      if (email) searchToWD();
+      return;
+    }
+
+    loadSchedule(true, true);
+  }
+
+  function startPolling() {
+    if (pollHandle) clearInterval(pollHandle);
+
+    pollHandle = setInterval(function() {
+      if (document.hidden) return;
+      if (currentTab === 'TODW') return;
+
+      /*
+       * Không show loading khi polling.
+       * Nếu cache còn fresh, server trả cực nhanh.
+       */
+      loadSchedule(false);
+    }, 20000);
+  }
+
+  function runSpeedTest() {
+    showLoading(true, 'Đang benchmark dữ liệu...');
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showLoading(false);
+
+        const text =
+          (result.ok ? '✅ ' : '⚠️ ') +
+          result.message +
+          ' ' +
+          'read=' + result.readMs + 'ms, total=' + result.totalMs + 'ms';
+
+        setStatus(text);
+        document.getElementById('statusRight').textContent =
+          'mode ' + result.perfMode;
+      })
+      .withFailureHandler(handleAuthAwareError)
+      .testSpeedReadAndDisplayData(sessionToken);
+  }
+
+  function clearSchedule() {
+    document.getElementById('tableArea').innerHTML =
+      emptyHtml('📅', 'Chưa có dữ liệu', 'Hãy chọn tháng và ngày.');
+  }
+
+  function setStatus(text) {
+    document.getElementById('status').textContent = text;
+  }
+
+  function showLoading(show, text) {
+    const el = document.getElementById('loading');
+    document.getElementById('loadingText').textContent =
+      text || 'Đang tải dữ liệu...';
+
+    if (show) el.classList.add('show');
+    else el.classList.remove('show');
+  }
+
+  function showError(error) {
+    showLoading(false);
+
+    const message =
+      error && error.message
+        ? error.message
+        : 'Không xác định được lỗi.';
+
+    document.getElementById('statusDot').style.background = '#e64b4b';
+    setStatus('❌ ' + message);
+    document.getElementById('statusRight').textContent = '';
+
+    document.getElementById('tableArea').innerHTML =
+      emptyHtml('⚠️', 'Không thể tải dữ liệu', message);
+  }
+
+  function emptyHtml(icon, title, text) {
+    return (
+      '<div class="empty">' +
+        '<div class="empty-icon">' + escapeHtml(icon) + '</div>' +
+        '<div class="empty-title">' + escapeHtml(title) + '</div>' +
+        '<div class="empty-text">' + escapeHtml(text) + '</div>' +
+      '</div>'
+    );
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#039;');
+  }
+</script>
+</body>
+</html>
