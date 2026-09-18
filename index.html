@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💖</text></svg>">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VMSSU - SHOPEE CS</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💖</text></svg>">
     <style>
-        /* Reset hoàn toàn lề và khoảng trắng của trình duyệt */
         * {
             margin: 0;
             padding: 0;
@@ -17,14 +15,28 @@
         html, body {
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Ẩn thanh cuộn thừa ngoài cùng của trình duyệt */
             background-color: #ffffff;
+            /* Hỗ trợ cuộn mượt trên iOS/Android */
+            -webkit-overflow-scrolling: touch;
         }
 
-        /* Ép iframe phủ kín 100% kích thước màn hình */
+        /* Thư mục chứa iframe giúp giữ tỷ lệ màn hình */
+        .iframe-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         iframe {
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
             border: none;
             display: block;
         }
@@ -32,10 +44,12 @@
 </head>
 <body>
 
-    <iframe src="https://script.google.com/a/macros/shopeemobile-external.com/s/AKfycbzF4wGzBsM_NPweM4-oyPXnnwNo0XcJszRR4WKI24QwGlT6xt1exim0b1EM4Irlw4Qn/exec" 
-            allow="geolocation; microphone; camera; clipboard-write;"
-            scrolling="yes">
-    </iframe>
+    <div class="iframe-container">
+        <iframe src="https://script.google.com/a/macros/shopeemobile-external.com/s/AKfycbzF4wGzBsM_NPweM4-oyPXnnwNo0XcJszRR4WKI24QwGlT6xt1exim0b1EM4Irlw4Qn/exec" 
+                allow="geolocation; microphone; camera; clipboard-write;"
+                scrolling="yes">
+        </iframe>
+    </div>
 
 </body>
 </html>
