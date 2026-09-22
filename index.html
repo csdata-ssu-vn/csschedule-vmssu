@@ -1,43 +1,57 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <!-- viewport-fit=cover: quan trọng trên iPhone có notch/thanh cử chỉ,
-       để iframe phủ đúng toàn bộ màn hình thật, không bị hụt. -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Lịch làm</title>
-  <style>
-    /* Reset để KHÔNG có bất kỳ margin/padding/theme nào của GitHub Pages
-     * (nếu bạn dùng theme Jekyll mặc định) chen vào — nếu không, chiều
-     * cao 100% sẽ bị cộng dồn sai và gây ra đúng lỗi 2 lớp cuộn đè nhau. */
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      height: 100dvh; /* mobile: tính đúng viewport thật, không bị lệch khi thanh địa chỉ ẩn/hiện */
-      overflow: hidden; /* trang NGOÀI không tự cuộn — để app BÊN TRONG iframe tự lo phần cuộn của nó */
-      background: #eef2fb;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>VMSSU - SHOPEE CS</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💖</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    iframe {
-      display: block;
-      width: 100%;
-      height: 100%;
-      height: 100dvh;
-      border: 0;
-    }
-  </style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: 100dvh; /* mobile: tính đúng viewport thật, không lệch khi thanh địa chỉ ẩn/hiện */
+            background-color: #ffffff;
+            overflow: hidden; /* trang NGOÀI không tự cuộn — chỉ app BÊN TRONG iframe cuộn */
+        }
+
+        /* Khung chứa iframe — CHỈ để định vị full màn hình, KHÔNG tự cuộn
+         * (overflow:hidden, không phải auto) — nếu để auto sẽ tạo ra 1 lớp
+         * cuộn thứ 2 chồng lên lớp cuộn của chính app bên trong iframe,
+         * gây giật/kẹt khi thao tác trên cảm ứng. */
+        .iframe-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+    </style>
 </head>
 <body>
-  <!--
-    Thay đúng link Web App bạn đã Deploy (kết thúc bằng /exec) vào src bên dưới.
-    Lấy link này ở: Apps Script editor > Deploy > Manage deployments > copy "Web app URL".
-  -->
-  <iframe
-    src="https://script.google.com/a/macros/shopeemobile-external.com/s/AKfycbzF4wGzBsM_NPweM4-oyPXnnwNo0XcJszRR4WKI24QwGlT6xt1exim0b1EM4Irlw4Qn/exec"
-    title="Lịch làm"
-    allow="clipboard-write"
-  ></iframe>
+
+    <div class="iframe-container">
+        <iframe src="https://script.google.com/a/macros/shopeemobile-external.com/s/AKfycbzF4wGzBsM_NPweM4-oyPXnnwNo0XcJszRR4WKI24QwGlT6xt1exim0b1EM4Irlw4Qn/exec"
+                allow="geolocation; microphone; camera; clipboard-write;"
+                scrolling="no">
+        </iframe>
+    </div>
+
 </body>
 </html>
